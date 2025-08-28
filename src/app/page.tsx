@@ -50,6 +50,7 @@ export default function Home() {
             )}&page=${page}&limit=20`
           : `/api/advocates?page=${page}&limit=20`;
 
+        // @todo consider adding a cache layer to the API response
         const response = await fetch(endpoint);
 
         if (!response.ok) {
@@ -314,6 +315,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* @todo consider extracting this to a separate component */}
       {pagination &&
         pagination.totalPages > 1 &&
         !isLoading &&

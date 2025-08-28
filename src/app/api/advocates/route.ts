@@ -2,15 +2,25 @@ import { sql } from "drizzle-orm"
 import { NextRequest } from "next/server"
 import db from "../../../db"
 import { advocates } from "../../../db/schema"
+import { validatePage, validateLimit, createValidationErrorResponse } from "../../../lib/validation"
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
-    const page = Math.max(1, parseInt(searchParams.get("page") || "1"))
-    const limit = Math.min(
-      50,
-      Math.max(1, parseInt(searchParams.get("limit") || "20"))
-    )
+    
+    // Validate pagination parameters
+    const pageValidation = validatePage(searchParams.get("page"))
+    if (!pageValidation.isValid) {
+      return createValidationErrorResponse(pageValidation.error!, pageValidation.code)
+    }
+
+    const limitValidation = validateLimit(searchParams.get("limit"))
+    if (!limitValidation.isValid) {
+      return createValidationErrorResponse(limitValidation.error!, limitValidation.code)
+    }
+
+    const page = pageValidation.value!
+    const limit = limitValidation.value!
     const offset = (page - 1) * limit
 
     // Get paginated results
@@ -37,9 +47,19 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error("Advocates API error:", error)
+    // Log the full error for debugging (server-side only)
+    console.error("Advocates API error:", {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString(),
+    })
+    
+    // Return sanitized error to client
     return Response.json(
-      { error: "Internal server error", message: "Failed to fetch advocates" },
+      { 
+        error: "Internal server error", 
+        message: "Failed to fetch advocates",
+        timestamp: new Date().toISOString()
+      },
       { status: 500 }
     )
   }
