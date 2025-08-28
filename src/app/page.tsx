@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 interface Advocate {
@@ -29,6 +30,9 @@ interface APIResponse {
 }
 
 export default function Home() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [advocates, setAdvocates] = useState<Advocate[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [searchInput, setSearchInput] = useState<string>('');
@@ -75,10 +79,30 @@ export default function Home() {
     []
   );
 
-  // Initial load
+  // Function to update URL with search params
+  const updateURL = useCallback(
+    (query: string, page: number) => {
+      const params = new URLSearchParams();
+      if (query) params.set('q', query);
+      if (page > 1) params.set('page', page.toString());
+
+      const url = params.toString() ? `?${params.toString()}` : '/';
+      router.replace(url, { scroll: false });
+    },
+    [router]
+  );
+
+  // Initialize from URL params
   useEffect(() => {
-    fetchAdvocates();
-  }, [fetchAdvocates]);
+    const urlQuery = searchParams.get('q') || '';
+    const urlPage = parseInt(searchParams.get('page') || '1', 10);
+
+    setSearchTerm(urlQuery);
+    setSearchInput(urlQuery);
+    setCurrentPage(urlPage);
+
+    fetchAdvocates(urlQuery, urlPage);
+  }, [fetchAdvocates, searchParams]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchInput(e.target.value);
@@ -93,10 +117,14 @@ export default function Home() {
       }
       // If we had a search term before, clear it and show all
       setSearchTerm('');
+      setCurrentPage(1);
+      updateURL('', 1);
       fetchAdvocates('', 1);
       return;
     }
     setSearchTerm(trimmedSearch);
+    setCurrentPage(1);
+    updateURL(trimmedSearch, 1);
     fetchAdvocates(trimmedSearch, 1);
   };
 
@@ -109,24 +137,92 @@ export default function Home() {
   const handleClearSearch = () => {
     setSearchInput('');
     setSearchTerm('');
+    setCurrentPage(1);
+    updateURL('', 1);
     fetchAdvocates('', 1);
   };
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && pagination && newPage <= pagination.totalPages) {
+      setCurrentPage(newPage);
+      updateURL(searchTerm.trim(), newPage);
       fetchAdvocates(searchTerm.trim(), newPage);
     }
   };
 
   return (
     <main className="pt-6 px-6 pb-[200px] max-w-7xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Solace Advocates</h1>
+      <h1 className="text-2xl font-bold mb-6 text-center">Solace Advocates</h1>
 
-      <div className="mb-8 p-6 border border-gray-200 bg-white rounded-lg shadow-sm">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-gray-800">
-            Search Advocates
-          </h2>
+      <fieldset className="mb-8 p-6 border border-gray-200 bg-white rounded-lg shadow-sm">
+        <legend className="px-2 py-1 text-xs font-bold text-gray-700 bg-white border border-gray-200 rounded-sm tracking-wider uppercase">
+          search advocates
+        </legend>
+        <div className="flex flex-row gap-4 w-full items-center justify-between">
+          <div className="flex items-center gap-2 flex-1 max-w-3xl">
+            <div className="relative flex-1">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                {isSearching ? (
+                  <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full"></div>
+                ) : (
+                  <svg
+                    className="h-5 w-5 text-gray-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                )}
+              </div>
+              <input
+                type="text"
+                value={searchInput}
+                onChange={handleSearchChange}
+                onKeyPress={handleKeyPress}
+                className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors duration-200 text-gray-900 placeholder-gray-500"
+                placeholder="Search by name, city, degree, or specialty..."
+                aria-label="Search advocates"
+                disabled={isLoading}
+              />
+              {searchInput && (
+                <button
+                  onClick={handleClearSearch}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                  aria-label="Clear search"
+                  disabled={isLoading}
+                >
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            <button
+              onClick={handleSearch}
+              disabled={isLoading || isSearching}
+              className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 focus:ring-2 focus:ring-primary/50 focus:outline-none transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              aria-label="Search"
+            >
+              Search
+            </button>
+          </div>
           {pagination && (
             <p className="text-sm text-gray-600">
               {searchTerm ? (
@@ -142,70 +238,7 @@ export default function Home() {
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2 max-w-2xl">
-          <div className="relative flex-1">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              {isSearching ? (
-                <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full"></div>
-              ) : (
-                <svg
-                  className="h-5 w-5 text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-              )}
-            </div>
-            <input
-              type="text"
-              value={searchInput}
-              onChange={handleSearchChange}
-              onKeyPress={handleKeyPress}
-              className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors duration-200 text-gray-900 placeholder-gray-500"
-              placeholder="Search by name, city, degree, or specialty..."
-              aria-label="Search advocates"
-              disabled={isLoading}
-            />
-            {searchInput && (
-              <button
-                onClick={handleClearSearch}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors duration-200"
-                aria-label="Clear search"
-                disabled={isLoading}
-              >
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            )}
-          </div>
-          <button
-            onClick={handleSearch}
-            disabled={isLoading || isSearching}
-            className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 focus:ring-2 focus:ring-primary/50 focus:outline-none transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-            aria-label="Search"
-          >
-            Search
-          </button>
-        </div>
-      </div>
+      </fieldset>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12  h-[calc(100vh-300px)]">
@@ -320,28 +353,28 @@ export default function Home() {
         pagination.totalPages > 1 &&
         !isLoading &&
         advocates.length > 0 && (
-          <div className="mt-4 flex items-center justify-center">
-            <div className="flex items-center space-x-4 bg-white px-4 py-3 rounded-lg border border-gray-200">
+          <div className="mt-8 flex flex-col items-center space-y-4">
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={!pagination.hasPrev || isLoading || isSearching}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-8 py-4 text-lg font-bold text-white bg-primary rounded-2xl hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
               >
-                ← Previous
+                ← PREV
               </button>
-
-              <span className="px-3 py-2 text-sm text-gray-700">
-                Page {pagination.page} of {pagination.totalPages}
-              </span>
 
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={!pagination.hasNext || isLoading || isSearching}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-8 py-4 text-lg font-bold text-white bg-primary rounded-2xl hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
               >
-                Next →
+                NEXT →
               </button>
             </div>
+
+            <p className="text-sm text-gray-500 font-medium">
+              Page {pagination.page} of {pagination.totalPages}
+            </p>
           </div>
         )}
     </main>
