@@ -14,3 +14,6 @@ Just dumping some thoughts here and noting what I’ve worked on...
 - Noticed `/src/app/api/seed/route.ts` isn’t protected, but since this is just a demo app, adding auth to the API might not be necessary right now. Skipping.
 - Thinking about truncating labels so rows don’t stretch too much. Don’t want to hide info just for the UI though. Probably needs more thought—leaving a note here, won’t tackle it in this demo.
 - Some basic security checks (query limit, sql injection blockers, and pagination bounds, etc..)
+- I’d like to switch pagination from left/right buttons to page numbers eventually, but for now I’ll stick with arrows. Going to clean up the style and make it pop more so users don’t miss it.
+- Move query and pagination into URL parameters, and update the main header to use a legend style.
+  ![](/DISCUSSION_IMAGES/image4.png)
