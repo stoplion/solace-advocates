@@ -8,3 +8,4 @@
   ![](DISCUSSION_IMAGES/image2.png)
 - A little more polish to frontend and some small performance tweaks via debouncing, async error handling, and logs removed
 - Switched up search from table scan + frontend filtering to backend search, added some pagination, and added some indexes and tidy'd up the frontend a little more add a splash every so slight color (Solace color √).
+- Noticed `/src/app/api/seed/route.ts` isn’t protected, but since this is just a demo app, adding auth to the API might not be necessary right now. Skipping.
